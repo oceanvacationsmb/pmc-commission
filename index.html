@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PMC Commission</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:Arial;margin:20px;max-width:900px}
+input,select,button{padding:8px;margin:4px 0;width:100%}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th,td{border:1px solid #ddd;padding:8px}
+th{background:#f4f4f4}
+.r{text-align:right}
+</style>
+</head>
+<body>
+
+<h2>PMC Sales Commission</h2>
+
+<div class="grid">
+  <div>
+    <label>Period start</label>
+    <input id="start" type="date">
+  </div>
+  <div>
+    <label>Period end</label>
+    <input id="end" type="date">
+  </div>
+</div>
+
+<h3>Add reservation</h3>
+
+<label>Property</label>
+<select id="property"></select>
+
+<label>Gross revenue</label>
+<input id="gross" type="number" placeholder="1000">
+
+<button onclick="addLine()">Add</button>
+
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th class="r">Gross</th>
+<th class="r">PMC %</th>
+<th class="r">PMC $</th>
+<th class="r">Sales %</th>
+<th class="r">Sales $</th>
+</tr>
+</thead>
+<tbody id="rows"></tbody>
+<tfoot>
+<tr>
+<th>Total</th>
+<th></th>
+<th></th>
+<th class="r" id="tPmc">$0.00</th>
+<th></th>
+<th class="r" id="tSales">$0.00</th>
+</tr>
+</tfoot>
+</table>
+
+<script>
+const PROPERTIES = {
+  "Ocean Breeze 101": { pmc: 10, sales: 10 },
+  "Palm Villa 22": { pmc: 5, sales: 10 },
+  "Sunset House": { pmc: 10, sales: 8 }
+};
+
+const propertySelect = document.getElementById("property");
+Object.keys(PROPERTIES).forEach(p=>{
+  const o=document.createElement("option");
+  o.value=p;
+  o.textContent=p;
+  propertySelect.appendChild(o);
+});
+
+let totalPmc=0, totalSales=0;
+
+function addLine(){
+  const prop = propertySelect.value;
+  const gross = Number(document.getElementById("gross").value);
+  if(!gross) return;
+
+  const rates = PROPERTIES[prop];
+  const pmc$ = gross * rates.pmc/100;
+  const sales$ = pmc$ * rates.sales/100;
+
+  totalPmc += pmc$;
+  totalSales += sales$;
+
+  const tr=document.createElement("tr");
+  tr.innerHTML=`
+    <td>${prop}</td>
+    <td class="r">$${gross.toFixed(2)}</td>
+    <td class="r">${rates.pmc}%</td>
+    <td class="r">$${pmc$.toFixed(2)}</td>
+    <td class="r">${rates.sales}%</td>
+    <td class="r">$${sales$.toFixed(2)}</td>
+  `;
+  document.getElementById("rows").appendChild(tr);
+
+  document.getElementById("tPmc").textContent="$"+totalPmc.toFixed(2);
+  document.getElementById("tSales").textContent="$"+totalSales.toFixed(2);
+
+  document.getElementById("gross").value="";
+}
+</script>
+
+</body>
+</html>
