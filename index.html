@@ -1,116 +1,242 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<title>PMC Commission</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body{font-family:Arial;margin:20px;max-width:900px}
-input,select,button{padding:8px;margin:4px 0;width:100%}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-table{width:100%;border-collapse:collapse;margin-top:12px}
-th,td{border:1px solid #ddd;padding:8px}
-th{background:#f4f4f4}
-.r{text-align:right}
-</style>
+  <meta charset="utf-8" />
+  <title>Sales Commission Statement</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f6f7f9;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      margin-top: 0;
+      text-align: center;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    label {
+      font-weight: bold;
+    }
+
+    input[type="date"] {
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 8px 16px;
+      border-radius: 4px;
+      border: none;
+      background: #1976d2;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #135ba1;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background: #f0f0f0;
+    }
+
+    .totals {
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .status {
+      margin-top: 10px;
+      color: #333;
+    }
+
+    .error {
+      margin-top: 10px;
+      color: #b00020;
+      white-space: pre-wrap;
+    }
+
+    footer {
+      margin-top: 25px;
+      text-align: center;
+      font-size: 12px;
+      color: #777;
+    }
+  </style>
 </head>
 <body>
 
-<h2>PMC Sales Commission</h2>
+  <div class="container">
+    <h2>Sales Commission Statement</h2>
 
-<div class="grid">
-  <div>
-    <label>Period start</label>
-    <input id="start" type="date">
+    <div class="row">
+      <label for="from">From</label>
+      <input id="from" type="date" />
+
+      <label for="to">To</label>
+      <input id="to" type="date" />
+
+      <button id="run">Load</button>
+    </div>
+
+    <div id="status" class="status"></div>
+    <div id="error" class="error"></div>
+
+    <table id="table" style="display:none">
+      <thead>
+        <tr>
+          <th>Property</th>
+          <th>PMC Total</th>
+          <th>Sales %</th>
+          <th>Sales Commission</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+
+    <div id="totals" class="totals"></div>
+
+    <footer>
+      Read-only data pulled from Guesty. This page cannot modify pricing, reservations, or listings.
+    </footer>
   </div>
-  <div>
-    <label>Period end</label>
-    <input id="end" type="date">
-  </div>
-</div>
 
-<h3>Add reservation</h3>
+  <script>
+    /*
+      IMPORTANT
+      Replace this with your Render API URL
+      Example:
+      const API_BASE = "https://guesty-pmc-api.onrender.com";
+    */
+    const API_BASE = "https://guesty-pmc-api.onrender.com";
 
-<label>Property</label>
-<select id="property"></select>
+    const runBtn = document.getElementById("run");
+    const statusEl = document.getElementById("status");
+    const errorEl = document.getElementById("error");
+    const tableEl = document.getElementById("table");
+    const tbodyEl = document.getElementById("tbody");
+    const totalsEl = document.getElementById("totals");
 
-<label>Net revenue</label>
-<input id="gross" type="number" placeholder="1000">
+    function money(value) {
+      const n = Number(value || 0);
+      return n.toLocaleString(undefined, {
+        style: "currency",
+        currency: "USD"
+      });
+    }
 
-<button onclick="addLine()">Add</button>
+    function percent(value) {
+      const n = Number(value || 0);
+      return (n * 100).toFixed(2) + "%";
+    }
 
-<table>
-<thead>
-<tr>
-<th>Property</th>
-<th class="r">PMC Total</th>
-<th class="r">PMC %</th>
-<th class="r">PMC $</th>
-<th class="r">Sales %</th>
-<th class="r">Sales $</th>
-</tr>
-</thead>
-<tbody id="rows"></tbody>
-<tfoot>
-<tr>
-<th>Total</th>
-<th></th>
-<th></th>
-<th class="r" id="tPmc">$0.00</th>
-<th></th>
-<th class="r" id="tSales">$0.00</th>
-</tr>
-</tfoot>
-</table>
+    function clearUI() {
+      statusEl.textContent = "";
+      errorEl.textContent = "";
+      tbodyEl.innerHTML = "";
+      tableEl.style.display = "none";
+      totalsEl.textContent = "";
+    }
 
-<script>
-const PROPERTIES = {
-  "1211A": { pmc: 12, sales: 5 },
-  "11312A": { pmc: 12, sales: 5 },
-  "11312B": { pmc: 12, sales: 5 },
-  "11813A": { pmc: 12, sales: 10 },
-  "11813B": { pmc: 12, sales: 10 }
-};
+    async function loadData() {
+      clearUI();
 
-const propertySelect = document.getElementById("property");
-Object.keys(PROPERTIES).forEach(p=>{
-  const o=document.createElement("option");
-  o.value=p;
-  o.textContent=p;
-  propertySelect.appendChild(o);
-});
+      const from = document.getElementById("from").value;
+      const to = document.getElementById("to").value;
 
-let totalPmc=0, totalSales=0;
+      if (!from || !to) {
+        errorEl.textContent = "Please select both From and To dates.";
+        return;
+      }
 
-function addLine(){
-  const prop = propertySelect.value;
-  const gross = Number(document.getElementById("gross").value);
-  if(!gross) return;
+      statusEl.textContent = "Loading data from Guesty...";
+      runBtn.disabled = true;
 
-  const rates = PROPERTIES[prop];
-  const pmc$ = gross * rates.pmc/100;
-  const sales$ = pmc$ * rates.sales/100;
+      try {
+        const url = API_BASE + "/commissions?from=" +
+          encodeURIComponent(from) +
+          "&to=" +
+          encodeURIComponent(to);
 
-  totalPmc += pmc$;
-  totalSales += sales$;
+        const response = await fetch(url);
+        const data = await response.json();
 
-  const tr=document.createElement("tr");
-  tr.innerHTML=`
-    <td>${prop}</td>
-    <td class="r">$${gross.toFixed(2)}</td>
-    <td class="r">${rates.pmc}%</td>
-    <td class="r">$${pmc$.toFixed(2)}</td>
-    <td class="r">${rates.sales}%</td>
-    <td class="r">$${sales$.toFixed(2)}</td>
-  `;
-  document.getElementById("rows").appendChild(tr);
+        if (!response.ok) {
+          throw new Error(JSON.stringify(data, null, 2));
+        }
 
-  document.getElementById("tPmc").textContent="$"+totalPmc.toFixed(2);
-  document.getElementById("tSales").textContent="$"+totalSales.toFixed(2);
+        const properties = data.summary.properties || [];
 
-  document.getElementById("gross").value="";
-}
-</script>
+        if (properties.length === 0) {
+          statusEl.textContent = "No PMC commissions found for this date range.";
+          return;
+        }
+
+        for (const p of properties) {
+          const tr = document.createElement("tr");
+
+          tr.innerHTML = `
+            <td>${p.propertyKey}</td>
+            <td>${money(p.pmcTotal)}</td>
+            <td>${percent(p.salesRate)}</td>
+            <td>${money(p.salesCommission)}</td>
+          `;
+
+          tbodyEl.appendChild(tr);
+        }
+
+        tableEl.style.display = "table";
+
+        totalsEl.textContent =
+          "Total PMC: " + money(data.summary.totals.pmcTotal) +
+          " | Total Sales Commission: " + money(data.summary.totals.salesCommission);
+
+        statusEl.textContent = "Done";
+      } catch (err) {
+        errorEl.textContent = String(err.message || err);
+        statusEl.textContent = "";
+      } finally {
+        runBtn.disabled = false;
+      }
+    }
+
+    runBtn.addEventListener("click", loadData);
+  </script>
 
 </body>
 </html>
