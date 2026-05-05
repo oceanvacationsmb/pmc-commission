@@ -1,0 +1,321 @@
+<meta>
+ 
+ <title>
+  PMC Collection &amp; Sales Commission
+ </title>
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+ 
+ <style>
+  input,select,button{padding:8px;margin:4px 0}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th,td{border:1px solid #ddd;padding:8px}
+th{background:#f4f4f4}
+.r{text-align:right}
+.action-btn{cursor:pointer;color:#c00;font-size:12px}
+.summary{margin-top:16px;font-size:15px}
+.summary strong{display:block;margin-top:6px}
+.voucher{margin-top:24px;border:1px solid #ccc;padding:14px;border-radius:6px}
+.cutline{margin:28px 0;border:0;border-top:2px dashed #999}
+.meta{font-weight:bold;margin-top:6px}
+/* print */
+@media print{
+  button,select{display:none}
+  body{margin:0}
+}
+/* remove number arrows */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
+input[type=number]{-moz-appearance:textfield}
+ </style>
+ <h2>
+  PMC Collection &amp; Sales Commission
+ </h2>
+ <label>
+  Year
+ </label>
+ <br>
+ <select id="year">
+  <option>
+   2025
+  </option>
+  <option selected="">
+   2026
+  </option>
+  <option>
+   2027
+  </option>
+ </select>
+ <br>
+ <label>
+  Month
+ </label>
+ <br>
+ <select id="month" onchange="updatePeriod()">
+  <option value="">
+   Select month
+  </option>
+  <option value="0">
+   January
+  </option>
+  <option value="1">
+   February
+  </option>
+  <option value="2">
+   March
+  </option>
+  <option value="3">
+   April
+  </option>
+  <option value="4">
+   May
+  </option>
+  <option value="5">
+   June
+  </option>
+  <option value="6">
+   July
+  </option>
+  <option value="7">
+   August
+  </option>
+  <option value="8">
+   September
+  </option>
+  <option value="9">
+   October
+  </option>
+  <option value="10">
+   November
+  </option>
+  <option value="11">
+   December
+  </option>
+ </select>
+ <div id="period" class="meta">
+ </div>
+ <button onclick="saveReport()">
+  Save Report
+ </button>
+ <button onclick="loadReport()">
+  Load Report
+ </button>
+ <button onclick="window.print()">
+  Print
+ </button>
+ <table>
+  <thead>
+   <tr>
+    <th>
+     Property
+    </th>
+    <th class="r">
+     Gross
+    </th>
+    <th class="r">
+     PMC %
+    </th>
+    <th class="r">
+     PMC $
+    </th>
+    <th class="r">
+     Sales %
+    </th>
+    <th class="r">
+     Sales $
+    </th>
+    <th>
+    </th>
+   </tr>
+  </thead>
+  <tbody id="rows">
+  </tbody>
+  <tfoot>
+   <tr>
+    <th>
+     Total
+    </th>
+    <th>
+    </th>
+    <th>
+    </th>
+    <th class="r" id="tPmc">
+     $0.00
+    </th>
+    <th>
+    </th>
+    <th class="r" id="tSales">
+     $0.00
+    </th>
+    <th>
+    </th>
+   </tr>
+  </tfoot>
+ </table>
+ <div class="summary">
+  <strong>
+   Total PMC Collected:
+   <span id="sumPmc">
+    $0.00
+   </span>
+  </strong>
+  <strong>
+   Total Commission Due:
+   <span id="sumSales">
+    $0.00
+   </span>
+  </strong>
+ </div>
+ <hr class="cutline">
+ <div class="voucher">
+  <h3>
+   Payment Voucher Request
+  </h3>
+  <p>
+   <strong>
+    Date:
+   </strong>
+   <span id="today">
+   </span>
+  </p>
+  <p>
+   <strong>
+    Bank:
+   </strong>
+   Anderson Brothers Bank
+  </p>
+  <p>
+   <strong>
+    Payment Type:
+   </strong>
+   Wire Transfer
+  </p>
+  <p>
+   <strong>
+    From:
+   </strong>
+   Ocean Vacations
+  </p>
+  <p>
+   <strong>
+    To:
+   </strong>
+   Ashley Almosnino
+  </p>
+  <p>
+   <strong>
+    Account #:
+   </strong>
+   261088314
+  </p>
+  <p>
+   <strong>
+    Amount:
+   </strong>
+   <span id="voucherAmount">
+    $0.00
+   </span>
+  </p>
+  <p>
+   <strong>
+    Memo:
+   </strong>
+   Advertising services
+  </p>
+ </div>
+ <script>
+  const STORAGE_KEY="pmcReports";
+/* all properties = 12% PMC / 5% Sales */
+const PROPERTIES={
+"ERAN ALL - 5%":{pmc:12,sales:5},
+"GC - 1463":{pmc:12,sales:5},
+"GCSSB - 113B-13N":{pmc:12,sales:5},
+"GCSSB - 113B-15S":{pmc:12,sales:5},
+"MB - 1552":{pmc:15,sales:5},
+"GHO ALL ":{pmc:10,sales:5},
+"MB - 2131":{pmc:15,sales:5},
+"MB - 4631/301":{pmc:12,sales:5},
+"MB - 4679/204":{pmc:12,sales:5},
+"MB - 469C":{pmc:12,sales:5},
+"NMB - 508/1+2-33S":{pmc:15,sales:10},
+"NMB - 214/2":{pmc:12,sales:10},
+"GCSSB - 115C":{pmc:12,sales:10},
+};
+const rows=document.getElementById("rows");
+const data=new Map();
+/* build rows */
+Object.keys(PROPERTIES).forEach(p=>{
+  const r=PROPERTIES[p];
+  const tr=document.createElement("tr");
+  tr.dataset.prop=p;
+  tr.innerHTML=`
+    <td>${p}</td>
+    <td class="r"><input type="number" oninput="editGross('${p}',this.value)" style="width:120px"></td>
+    <td class="r">${r.pmc}%</td>
+    <td class="r pmc">$0.00</td>
+    <td class="r">${r.sales}%</td>
+    <td class="r sales">$0.00</td>
+    <td class="action-btn" onclick="clearLine('${p}')">Clear</td>`;
+  rows.appendChild(tr);
+});
+function updatePeriod(){
+  clearCurrentReport(); // 🔹 important
+  const y=year.value,m=month.value;
+  if(m===""){period.textContent="";return;}
+  const s=new Date(y,m,1),e=new Date(y,Number(m)+1,0);
+  period.textContent=`Period: ${s.toLocaleDateString()} > ${e.toLocaleDateString()}`;
+}
+function clearCurrentReport(){
+  document.querySelectorAll("tbody input").forEach(i=>i.value="");
+  document.querySelectorAll(".pmc,.sales").forEach(c=>c.textContent="$0.00");
+  data.clear();
+  recalc();
+}
+function recalc(){
+  let pmc=0,sales=0;
+  data.forEach(v=>{pmc+=v.pmc;sales+=v.sales});
+  tPmc.textContent=sumPmc.textContent="$"+pmc.toFixed(2);
+  tSales.textContent=sumSales.textContent=voucherAmount.textContent="$"+sales.toFixed(2);
+}
+function editGross(prop,val){
+  const g=Number(val),r=PROPERTIES[prop];
+  const row=document.querySelector(`tr[data-prop="${prop}"]`);
+  if(!g){clearLine(prop);return;}
+  const pmc=g*r.pmc/100,sales=pmc*r.sales/100;
+  row.querySelector(".pmc").textContent="$"+pmc.toFixed(2);
+  row.querySelector(".sales").textContent="$"+sales.toFixed(2);
+  data.set(prop,{gross:g,pmc,sales});
+  recalc();
+}
+function clearLine(prop){
+  const row=document.querySelector(`tr[data-prop="${prop}"]`);
+  row.querySelector("input").value="";
+  row.querySelector(".pmc").textContent="$0.00";
+  row.querySelector(".sales").textContent="$0.00";
+  data.delete(prop);
+  recalc();
+}
+/* DATABASE */
+function saveReport(){
+  if(month.value==="")return alert("Select month");
+  const db=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
+  if(!db[year.value])db[year.value]={};
+  db[year.value][month.value]={period:period.textContent,data:Array.from(data.entries())};
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(db));
+  alert("Report saved");
+}
+function loadReport(){
+  clearCurrentReport(); // 🔹 always clear first
+  const db=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
+  if(!db[year.value]||!db[year.value][month.value])return;
+  db[year.value][month.value].data.forEach(([p,v])=>{
+    document.querySelector(`tr[data-prop="${p}"] input`).value=v.gross;
+    editGross(p,v.gross);
+  });
+  period.textContent=db[year.value][month.value].period;
+}
+/* today */
+today.textContent=new Date().toLocaleDateString();
+ </script>
